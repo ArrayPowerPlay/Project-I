@@ -2,188 +2,286 @@
 using namespace std;
 
 struct Person {
-    string father, mother;
-    string status;
+    string father;
+    string mother;
+    bool alive;
     string dob;
-    vector<string> children;
 };
 
-unordered_map<string, Person> ppl;
-unordered_map<string, array<int, 2>> dp;
-unordered_set<string> visited_dfs;
+struct HopcroftKarp {
+    int nLeft;
+    int nRight;
+    vector<vector<int>> adj;
+    vector<int> dist;
+    vector<int> matchLeft;
+    vector<int> matchRight;
 
-vector<string> forests;
-unordered_set<string> processed;
+    HopcroftKarp(int nl, int nr, vector<vector<int>> g)
+        : nLeft(nl),
+          nRight(nr),
+          adj(std::move(g)),
+          dist(nl, -1),
+          matchLeft(nl, -1),
+          matchRight(nr, -1) {}
 
-// find max unrelated people of a tree with root 's'
-int dfs(string s) {
-    // if(visited_dfs.count(s)) {
-    //     return max(dp[s][0], dp[s][1]);
-    // }
-
-    if(dp.find(s) != dp.end()) {
-        return max(dp[s][0], dp[s][1]);
-    }
-
-    // visited_dfs.insert(s);
-    // max unrelated people of a tree if we don't choose 's'
-    dp[s][0] = 0;
-    // max unrelated people of a tree if we choose 's'
-    dp[s][1] = 1;
-    
-    for(string &child : ppl[s].children) {
-        if(dp.find(child) == dp.end()) {
-            dfs(child);
+    bool bfs() {
+        queue<int> q;
+        fill(dist.begin(), dist.end(), -1);
+        for (int u = 0; u < nLeft; ++u) {
+            if (matchLeft[u] == -1) {
+                dist[u] = 0;
+                q.push(u);
+            }
         }
 
-        dp[s][0] += max(dp[child][0], dp[child][1]);
-        dp[s][1] += dp[child][0];
-    }
-    return max(dp[s][0], dp[s][1]);
-}
-
-int maxAncestor(const string &s, unordered_set<string> &visited) {
-    // return the distance between the oldest ancestor that is alive and s
-    // return 0 if cannot find
-    if(visited.find(s) != visited.end()) return 0;
-    visited.insert(s);
-    int maxDist = 0;
-
-    for(string ancester : {ppl[s].father, ppl[s].mother}) {
-        if(ancester == "0000000") continue;
-        if(ppl.find(ancester) == ppl.end()) continue;
-        
-        if(ppl[ancester].status == "Y") {
-            maxDist = 1;
+        bool reachedFreeRight = false;
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+            for (int v : adj[u]) {
+                int matchedU = matchRight[v];
+                if (matchedU == -1) {
+                    reachedFreeRight = true;
+                } else if (dist[matchedU] == -1) {
+                    dist[matchedU] = dist[u] + 1;
+                    q.push(matchedU);
+                }
+            }
         }
-
-        int dist = maxAncestor(ancester, visited);
-
-        if(dist != 0) {
-            maxDist = max(maxDist, 1 + dist);
-        }
+        return reachedFreeRight;
     }
 
-    return maxDist;
-}
+    bool dfs(int u) {
+        for (int v : adj[u]) {
+            int matchedU = matchRight[v];
+            if (matchedU == -1 ||
+                (dist[matchedU] == dist[u] + 1 && dfs(matchedU))) {
+                matchLeft[u] = v;
+                matchRight[v] = u;
+                return true;
+            }
+        }
+        dist[u] = -1;
+        return false;
+    }
+
+    int maxMatching() {
+        if (nLeft == 0 || nRight == 0) {
+            return 0;
+        }
+
+        int matching = 0;
+        while (bfs()) {
+            for (int u = 0; u < nLeft; ++u) {
+                if (matchLeft[u] == -1 && dfs(u)) {
+                    ++matching;
+                }
+            }
+        }
+        return matching;
+    }
+};
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    string s;
-    int num_ppl = 0;
-    unordered_map<string, int> num_ppl_born_at;
-    // <personID, <ancesterID, ancesterStatus> 
-    unordered_map<string, bool> visited;
-    vector<string> date;
-    vector<string> person_list;
+    unordered_map<string, int> idOf;
+    vector<Person> people;
+    vector<string> codes;
+    unordered_map<string, int> bornAtCount;
+    vector<string> dobList;
 
-    cin >> s;
-
-    while(s != "*") {
-        string dob, father_code, mother_code, status, region_code;
-        cin >> dob >> father_code >> mother_code >> status >> region_code;
-
-        ++num_ppl;
-        ++num_ppl_born_at[dob];
-        date.push_back(dob);
-
-        Person &p = ppl[s];
-        p.father = father_code;
-        p.mother = mother_code;
-        p.status = status;
-        p.dob = dob;
-        
-        person_list.push_back(s);
-
-        cin >> s;
+    string code;
+    if (!(cin >> code)) {
+        return 0;
     }
 
-    cin >> s;
-    sort(date.begin(), date.end());
+    while (code != "*") {
+        string dob, father, mother, status, region;
+        cin >> dob >> father >> mother >> status >> region;
 
-    // "0000000" is the virtual root node, which is the ancester of all other nodes
-    // Therefore, we calculate max unrelated people by not taking "0000000" into account
-    // vector<string> roots;
+        Person person{father, mother, status == "Y", dob};
+        idOf[code] = static_cast<int>(people.size());
+        people.push_back(person);
+        codes.push_back(code);
+        ++bornAtCount[dob];
+        dobList.push_back(dob);
 
-    // for (auto &person : ppl) {
-    //     const string &id = person.first;
-    //     const Person &pp = person.second;
-
-    //     if (pp.father == "0000000" && pp.mother == "0000000") {
-    //         roots.push_back(id);
-    //     }
-    // }
-
-    // visited_dfs.clear();
-    // dp.clear();
-    // int max_unrelated = 0;
-    // for (auto &root : roots) {
-    //     max_unrelated += dfs(root);
-    // }
-
-    // Xây dựng quan hệ cha-con sau khi đã đọc hết input
-    unordered_map<string, bool> has_parent;
-
-    for (const string &id : person_list) has_parent[id] = false;
-
-    for (const string &id : person_list) {
-        const Person &p = ppl[id];
-        if (p.father != "0000000" && ppl.find(p.father) != ppl.end()) {
-            ppl[p.father].children.push_back(id);
-            has_parent[id] = true;
-        }
-        if (p.mother != "0000000" && ppl.find(p.mother) != ppl.end()) {
-            ppl[p.mother].children.push_back(id);
-            has_parent[id] = true;
+        if (!(cin >> code)) {
+            break;
         }
     }
 
-    // Collect roots: people who do not have any parent inside the DB
-    vector<string> roots;
-    for (const string &id : person_list) {
-        if (!has_parent[id]) roots.push_back(id);
+    const int n = static_cast<int>(people.size());
+    vector<string> sortedDob = dobList;
+    sort(sortedDob.begin(), sortedDob.end());
+
+    vector<array<int, 2>> parents(n, array<int, 2>{-1, -1});
+    vector<vector<int>> graph(n);
+
+    for (int i = 0; i < n; ++i) {
+        array<string, 2> parentCodes{people[i].father, people[i].mother};
+        for (int j = 0; j < 2; ++j) {
+            const string &pcode = parentCodes[j];
+            if (pcode == "0000000") {
+                continue;
+            }
+            auto it = idOf.find(pcode);
+            if (it == idOf.end()) {
+                continue;
+            }
+            int pid = it->second;
+            parents[i][j] = pid;
+            graph[i].push_back(pid);
+            graph[pid].push_back(i);
+        }
     }
 
-    dp.clear();
-    int max_unrelated = 0;
-    
-    for (const string &root : roots) {
-        max_unrelated += dfs(root);
+    vector<int> ancestorMemo(n, -1);
+    vector<uint8_t> ancestorState(n, 0);
+
+    function<int(int)> farthestAliveAncestor = [&](int u) -> int {
+        if (u < 0) {
+            return 0;
+        }
+        if (ancestorState[u] == 2) {
+            return ancestorMemo[u];
+        }
+        if (ancestorState[u] == 1) {
+            return 0;
+        }
+
+        ancestorState[u] = 1;
+        int best = 0;
+        for (int parent : parents[u]) {
+            if (parent == -1) {
+                continue;
+            }
+            int candidate = 0;
+            if (people[parent].alive) {
+                candidate = 1;
+            }
+            int further = farthestAliveAncestor(parent);
+            if (further > 0) {
+                candidate = max(candidate, 1 + further);
+            }
+            best = max(best, candidate);
+        }
+        ancestorState[u] = 2;
+        ancestorMemo[u] = best;
+        return best;
+    };
+
+    vector<int> color(n, -1);
+    bool bipartite = true;
+    queue<int> q;
+    for (int i = 0; i < n; ++i) {
+        if (color[i] != -1) {
+            continue;
+        }
+        color[i] = 0;
+        q.push(i);
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+            for (int v : graph[u]) {
+                if (color[v] == -1) {
+                    color[v] = color[u] ^ 1;
+                    q.push(v);
+                } else if (color[v] == color[u]) {
+                    bipartite = false;
+                }
+            }
+        }
     }
 
-    while(s != "***") {
-        if(s == "NUMBER_PEOPLE") {
-            cout << num_ppl << endl;
-        } else if(s == "NUMBER_PEOPLE_BORN_AT") {
+    int maxUnrelated = 0;
+    if (bipartite) {
+        vector<int> leftIndex(n, -1);
+        vector<int> rightIndex(n, -1);
+        int leftCount = 0;
+        int rightCount = 0;
+        for (int i = 0; i < n; ++i) {
+            if (color[i] == 0) {
+                leftIndex[i] = leftCount++;
+            } else {
+                rightIndex[i] = rightCount++;
+            }
+        }
+
+        vector<vector<int>> hkAdj(leftCount);
+        for (int i = 0; i < n; ++i) {
+            if (color[i] != 0) {
+                continue;
+            }
+            int u = leftIndex[i];
+            for (int v : graph[i]) {
+                if (color[v] == 1) {
+                    hkAdj[u].push_back(rightIndex[v]);
+                }
+            }
+        }
+
+        HopcroftKarp hk(leftCount, rightCount, std::move(hkAdj));
+        int matching = hk.maxMatching();
+        maxUnrelated = n - matching;
+    } else {
+        // Should not happen for valid genealogy, but guard with simple fallback.
+        vector<bool> used(n, false);
+        vector<int> order(n);
+        iota(order.begin(), order.end(), 0);
+        sort(order.begin(), order.end(), [&](int a, int b) {
+            return graph[a].size() < graph[b].size();
+        });
+        for (int u : order) {
+            if (used[u]) {
+                continue;
+            }
+            bool ok = true;
+            for (int v : graph[u]) {
+                if (used[v]) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) {
+                used[u] = true;
+                ++maxUnrelated;
+            }
+        }
+    }
+
+    string query;
+    while (cin >> query && query != "***") {
+        if (query == "NUMBER_PEOPLE") {
+            cout << n << '\n';
+        } else if (query == "NUMBER_PEOPLE_BORN_AT") {
             string dob;
             cin >> dob;
-
-            cout << num_ppl_born_at[dob] << endl;
-        } else if(s == "NUMBER_PEOPLE_BORN_BETWEEN") {
-            string d1, d2;
-            cin >> d1 >> d2;
-
-            auto L = lower_bound(date.begin(), date.end(), d1);
-            auto R = upper_bound(date.begin(), date.end(), d2);
-            
-            cout << (R - L) << endl;
-        } else if(s == "MOST_ALIVE_ANCESTOR") {
-            string personID;
-            cin >> personID;
-
-            unordered_set<string> visited;
-            
-            if(ppl.find(personID) == ppl.end()) cout << 0 << endl;
-            else {
-                unordered_set<string> visited;
-                cout << maxAncestor(personID, visited) << endl;
+            auto it = bornAtCount.find(dob);
+            cout << (it == bornAtCount.end() ? 0 : it->second) << '\n';
+        } else if (query == "NUMBER_PEOPLE_BORN_BETWEEN") {
+            string fromDate, toDate;
+            cin >> fromDate >> toDate;
+            auto leftIt = lower_bound(sortedDob.begin(), sortedDob.end(), fromDate);
+            auto rightIt =
+                upper_bound(sortedDob.begin(), sortedDob.end(), toDate);
+            cout << static_cast<int>(rightIt - leftIt) << '\n';
+        } else if (query == "MOST_ALIVE_ANCESTOR") {
+            string target;
+            cin >> target;
+            auto it = idOf.find(target);
+            if (it == idOf.end()) {
+                cout << 0 << '\n';
+            } else {
+                cout << farthestAliveAncestor(it->second) << '\n';
             }
-        } else {
-            cout << max_unrelated << endl;
+        } else if (query == "MAX_UNRELATED_PEOPLE") {
+            cout << maxUnrelated << '\n';
         }
-
-        cin >> s;
     }
+
+    return 0;
 }
+

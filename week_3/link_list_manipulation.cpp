@@ -5,15 +5,15 @@ struct node {
     int val;
     node *next;
 
-    node(int k) : val(k), next(NULL) {}
+    node(int k) : val(k), next(nullptr) {}
 };
 
 // check if a node with value k exists in a linked list
 bool check_exist(node *h, int k) {
-    if(h == NULL) return false;
+    if(h == nullptr) return false;
     node *p = h;
 
-    while(p != NULL) {
+    while(p != nullptr) {
         if(p->val == k) return true;
         p = p->next;
     }
@@ -24,12 +24,12 @@ bool check_exist(node *h, int k) {
 node *addlast(node *h, int k) {
     node *p = new node(k);
 
-    if(h == NULL) return p;
+    if(h == nullptr) return p;
 
     node *tmp = h;
     if(check_exist(h, k)) return h;
 
-    while(tmp->next != NULL) {
+    while(tmp->next != nullptr) {
         tmp = tmp->next;
     }
 
@@ -40,7 +40,7 @@ node *addlast(node *h, int k) {
 node *addfirst(node *h, int k) {
     node *p = new node(k);
 
-    if(h == NULL) return p;
+    if(h == nullptr) return p;
     if(check_exist(h, k)) return h;
 
     p->next = h;
@@ -51,7 +51,7 @@ node *addafter(node *h, int u, int v) {
     if(check_exist(h, v) && !check_exist(h, u)) {
         node *p = h;
         
-        while(p != NULL) {
+        while(p != nullptr) {
             if(p->val == v) {
                 node *tmp = new node(u);
                 
@@ -76,7 +76,7 @@ node *addbefore(node *h, int u, int v) {
             return tmp;
         }
 
-        while(p->next != NULL) {
+        while(p->next != nullptr) {
             if(p->next->val == v) {
                 tmp->next = p->next;
                 p->next = tmp;
@@ -90,7 +90,7 @@ node *addbefore(node *h, int u, int v) {
 }
 
 node *remove(node *h, int k) {
-    if(h == NULL) return h;
+    if(h == nullptr) return h;
     node *p = h;
     
     if(p->val == k) {
@@ -98,7 +98,7 @@ node *remove(node *h, int k) {
         return p;
     }
 
-    while(p->next != NULL) {
+    while(p->next != nullptr) {
         if(p->next->val == k) {
             node *del = p->next;
             p->next = p->next->next;
@@ -111,12 +111,12 @@ node *remove(node *h, int k) {
 }
 
 node *reverse(node *h) {
-    if(h == NULL) return h;
-    node *prev = NULL;
+    if(h == nullptr) return h;
+    node *prev = nullptr;
     node *cur = h;
-    node *forward = NULL;
+    node *forward = nullptr;
 
-    while(cur != NULL) {
+    while(cur != nullptr) {
         forward = cur->next;
         cur->next = prev;
         prev = cur;
@@ -127,9 +127,9 @@ node *reverse(node *h) {
 }
 
 void print_node(node *h) {
-    if(h == NULL) return;
+    if(h == nullptr) return;
 
-    while(h != NULL) {
+    while(h != nullptr) {
         cout << h->val << " ";
         h = h->next;
     }
